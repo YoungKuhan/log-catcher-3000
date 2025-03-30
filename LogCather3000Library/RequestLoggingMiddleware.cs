@@ -30,40 +30,61 @@ namespace LogCather3000Library
         {
             if (_settings.EnableRequestLogging)
             {
-                HttpRequest request = context.Request;
-                request.EnableBuffering();
-                var bodyStream = new StreamReader(request.Body);
-                var requestBodyText = await bodyStream.ReadToEndAsync();
-                request.Body.Position = 0;
-                var jsonRequest = JsonSerializer.Serialize(new
-                {
-                    Date = DateTime.Now,
-                    Host = request.Host,
-                    ContentType = request.ContentType,
-                    Method = request.Method,
-                    Path = request.Path,
-                    QueryString = request.QueryString,
-                    Headers = request.Headers,
-                    Body = requestBodyText
-                });
-
-                await _next(context);
-
-                if (_settings.EnableResponseLogging)
-                {
-                    HttpResponse response = context.Response;
-                    response.Body.Seek(0, SeekOrigin.Begin);    
-                    var responseBodyText = await new StreamReader(response.Body).ReadToEndAsync();
-                    response.Body.Seek(0, SeekOrigin.Begin);
-
-                    var jsonResponse = JsonSerializer.Serialize(new
-                    {
-                        Date = DateTime.Now,
-                        StatusCodes = response.StatusCode,
-                        Body = responseBodyText
-                    });
-                }
+                await LogRequest(context);
             }
+
+            var originalBodyStream = context.Response.Body;
+            using var responseBody = new MemoryStream();
+            context.Response.Body = responseBody;
+
+            await _next(context); //Przekazujemy context do kolejnych elementów pipeline
+
+            if (_settings.EnableResponseLogging)
+            {
+                await LogResponse(context, responseBody);
+            }
+
+            await responseBody.CopyToAsync(originalBodyStream);
+        }
+
+        private async Task LogRequest(HttpContext context)
+        {
+            HttpRequest request = context.Request;
+            request.EnableBuffering();
+
+            using var reader = new StreamReader(request.Body, leaveOpen: true);
+            string body = await reader.ReadToEndAsync();
+            request.Body.Position = 0;
+
+            string jsonRequest = JsonSerializer.Serialize(new
+            {
+                Date = DateTime.Now,
+                Host = request.Host,
+                ContentType = request.ContentType,
+                Method = request.Method,
+                Path = request.Path,
+                QueryString = request.QueryString,
+                Headers = request.Headers,
+                Body = body
+            });
+
+            _logger.LogInformation("Incoming Request: " + jsonRequest);
+        }
+
+        private async Task LogResponse(HttpContext context, MemoryStream responseBody)
+        {
+            responseBody.Seek(0, SeekOrigin.Begin);
+            using var reader = new StreamReader(responseBody, leaveOpen: true);
+            string body = await reader.ReadToEndAsync();
+            responseBody.Seek(0, SeekOrigin.Begin);
+
+            string jsonResponse = JsonSerializer.Serialize(new
+            {
+                Date = DateTime.Now,
+                StatusCodes = context.Response.StatusCode,
+                Body = body
+            });
+            _logger.LogInformation("Response: " + jsonResponse);
         }
 
 
