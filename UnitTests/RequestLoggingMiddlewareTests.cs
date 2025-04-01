@@ -6,6 +6,7 @@ using Castle.Core.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using System.Text;
+using System.Text.Json;
 
 namespace LogCatcher3000.Tests
 {
@@ -23,8 +24,7 @@ namespace LogCatcher3000.Tests
             var configValues = new Dictionary<string, string>
             {
                 { "Logging:EnableRequestLogging", "true" },
-                { "Logging:EnableResponseLogging", "true" },
-                { "Logging:MaxLogBodySize", "1024" }
+                { "Logging:EnableResponseLogging", "false" }
             };
             _config = new ConfigurationBuilder()
                 .AddInMemoryCollection(configValues)
@@ -33,6 +33,59 @@ namespace LogCatcher3000.Tests
             RequestDelegate next = (HttpContext ctx) => Task.CompletedTask;
 
             _middleware = new RequestLoggingMiddleware(next, _mockLogger.Object, _config);
+        }
+
+        [Test]
+        public async Task Middleware_Should_Not_Log_Request()
+        {
+            var config = BuildConfiguration(enableRequest: false, enableResponse: false);
+            var middleware = new RequestLoggingMiddleware(
+                next: (ctx) => Task.CompletedTask,
+                logger:  _mockLogger.Object,
+                config: config);
+
+            var context = new DefaultHttpContext();
+            context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("Test"));
+
+            await middleware.Invoke(context);
+
+            _mockLogger.Verify(
+                x => x.Log(
+                    It.IsAny<LogLevel>(),
+                    It.IsAny<EventId>(),
+                    It.IsAny<It.IsAnyType>(),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                Times.Never
+                );
+        }
+
+        [Test]
+        public async Task Middleware_Should_Log_Request1()
+        {
+            var config = BuildConfiguration(enableRequest: false, enableResponse: false);
+            var middleware = new RequestLoggingMiddleware(
+                next: (ctx) => Task.CompletedTask,
+                logger: _mockLogger.Object,
+                config: config);
+
+            var context = new DefaultHttpContext();
+            context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("Test"));
+            context.Request.Headers["X-Test-Header"] = "header-value";
+
+            await middleware.Invoke(context);
+
+            _mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) =>
+                        v.ToString().Contains("test body") &&
+                        v.ToString().Contains("X-Test-Header")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                Times.Once
+            );
         }
 
         [Test]
@@ -49,14 +102,52 @@ namespace LogCatcher3000.Tests
             await _middleware.Invoke(context);
 
             _mockLogger.Verify(logger =>
-                logger.Log(
-                    It.Is<LogLevel>(logLevel => logLevel == LogLevel.Information),
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((state, type) => state.ToString().Contains("\"Method\":\"POST\"") &&
-                                                          state.ToString().Contains("\"Path\":\"/test\"")),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                Times.Once);
+    logger.Log(
+        It.Is<LogLevel>(logLevel => logLevel == LogLevel.Information),
+        It.IsAny<EventId>(),
+        It.Is<It.IsAnyType>((state, type) => ValidateJsonLog(state.ToString())),
+        It.IsAny<Exception>(),
+        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+    Times.Once);
         }
+
+
+        private bool ValidateJsonLog(string logMessage)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(logMessage);
+                var root = doc.RootElement;
+
+                var methodCorrect = root.TryGetProperty("Method", out var method) &&
+                                    method.GetString() == "POST";
+
+                var pathCorrect = root.TryGetProperty("Path", out var path) &&
+                                  path.TryGetProperty("Value", out var pathValue) &&
+                                  pathValue.GetString() == "/test";
+
+                var bodyCorrect = root.TryGetProperty("Body", out var body) &&
+                                  body.GetString().Contains("\"name\": \"Test\"");
+
+                return methodCorrect && pathCorrect && bodyCorrect;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private Microsoft.Extensions.Configuration.IConfiguration BuildConfiguration(bool enableRequest, bool enableResponse)
+        {
+            var configValues = new Dictionary<string, string>
+            {
+                { "Logging:EnableRequestLogging", enableRequest.ToString() },
+                { "Logging:EnableResponseLogging", enableResponse.ToString() }
+            };
+            return new ConfigurationBuilder()
+                .AddInMemoryCollection(configValues)
+                .Build();
+        }
+
     }
 }
