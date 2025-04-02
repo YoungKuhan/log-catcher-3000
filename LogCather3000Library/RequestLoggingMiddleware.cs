@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -59,16 +60,17 @@ namespace LogCather3000Library
             string jsonRequest = JsonSerializer.Serialize(new
             {
                 Date = DateTime.Now,
-                Host = request.Host,
+                Host = request.Host.Value,          
                 ContentType = request.ContentType,
                 Method = request.Method,
-                Path = request.Path,
-                QueryString = request.QueryString,
+                Path = request.Path.Value,         
+                QueryString = request.QueryString.Value.ToString(), 
                 Headers = request.Headers,
                 Body = body
             });
 
             _logger.LogInformation("Incoming Request: " + jsonRequest);
+            Console.WriteLine(jsonRequest);
         }
 
         private async Task LogResponse(HttpContext context, MemoryStream responseBody)
@@ -82,7 +84,8 @@ namespace LogCather3000Library
             {
                 Date = DateTime.Now,
                 StatusCodes = context.Response.StatusCode,
-                Body = body
+                Body = body,
+                ContentType = context.Response.ContentType
             });
             _logger.LogInformation("Response: " + jsonResponse);
         }
