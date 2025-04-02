@@ -61,9 +61,9 @@ namespace LogCatcher3000.Tests
         }
 
         [Test]
-        public async Task Middleware_Should_Log_Request1()
+        public async Task Middleware_Should_Log_Request_And_Should_Not_Log_Response()
         {
-            var config = BuildConfiguration(enableRequest: false, enableResponse: false);
+            var config = BuildConfiguration(enableRequest: true, enableResponse: false);
             var middleware = new RequestLoggingMiddleware(
                 next: (ctx) => Task.CompletedTask,
                 logger: _mockLogger.Object,
@@ -72,45 +72,38 @@ namespace LogCatcher3000.Tests
             var context = new DefaultHttpContext();
             context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("Test"));
             context.Request.Headers["X-Test-Header"] = "header-value";
+            context.Request.Method = "POST";
+
+            context.Response.StatusCode = 200;
+            context.Response.ContentType = "application/json";  
+
 
             await middleware.Invoke(context);
 
             _mockLogger.Verify(
                 x => x.Log(
-                    LogLevel.Information,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) =>
-                        v.ToString().Contains("test body") &&
-                        v.ToString().Contains("X-Test-Header")),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                Times.Once
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) =>
+                    v.ToString().Contains("Test") &&  
+                    v.ToString().Contains("X-Test-Header") &&
+                    v.ToString().Contains("header-value")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+            Times.Once
+            );
+
+            _mockLogger.Verify(
+                x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) =>
+                    v.ToString().Contains("Outgoing Response")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+            Times.Never
             );
         }
-
-        [Test]
-        public async Task Middleware_Should_Log_Request()
-        {
-            var context = new DefaultHttpContext();
-            context.Request.Method = "POST";
-            context.Request.Path = "/test";
-            context.Request.ContentType = "application/json";   
-            var requestBody = "{\"name\": \"Test\"}";
-            context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(requestBody));
-            context.Request.Body.Seek(0, SeekOrigin.Begin);
-
-            await _middleware.Invoke(context);
-
-            _mockLogger.Verify(logger =>
-    logger.Log(
-        It.Is<LogLevel>(logLevel => logLevel == LogLevel.Information),
-        It.IsAny<EventId>(),
-        It.Is<It.IsAnyType>((state, type) => ValidateJsonLog(state.ToString())),
-        It.IsAny<Exception>(),
-        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-    Times.Once);
-        }
-
 
         private bool ValidateJsonLog(string logMessage)
         {

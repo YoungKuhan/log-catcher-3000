@@ -69,7 +69,6 @@ namespace LogCather3000Library
             });
 
             _logger.LogInformation("Incoming Request: " + jsonRequest);
-            Console.WriteLine("LOGGED: " + jsonRequest);
         }
 
         private async Task LogResponse(HttpContext context, MemoryStream responseBody)
