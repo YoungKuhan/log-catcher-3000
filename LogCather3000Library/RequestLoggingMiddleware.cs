@@ -68,9 +68,7 @@ namespace LogCather3000Library
                 Headers = request.Headers,
                 Body = body
             });
-
             _logger.LogInformation("Incoming Request: " + jsonRequest);
-            Console.WriteLine(jsonRequest);
         }
 
         private async Task LogResponse(HttpContext context, MemoryStream responseBody)
@@ -83,13 +81,11 @@ namespace LogCather3000Library
             string jsonResponse = JsonSerializer.Serialize(new
             {
                 Date = DateTime.Now,
-                StatusCodes = context.Response.StatusCode,
+                StatusCode = context.Response.StatusCode,
                 Body = body,
                 ContentType = context.Response.ContentType
             });
             _logger.LogInformation("Response: " + jsonResponse);
         }
-
-
     }
 }
