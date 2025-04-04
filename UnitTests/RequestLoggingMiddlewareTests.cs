@@ -63,37 +63,8 @@ namespace LogCatcher3000.Tests
 
             await middleware.Invoke(context);
 
-            _mockLogger.Verify(
-                x => x.Log(
-                    LogLevel.Information,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) =>
-                        v.ToString().Contains("Response:") &&
-                        v.ToString().Contains("\"StatusCode\":200") &&
-                        v.ToString().Contains("\"ContentType\":\"application/json\"")
-                    ),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                Times.Once
-                );
-
-            _mockLogger.Verify(
-                    x => x.Log(
-                        LogLevel.Information,
-                        It.IsAny<EventId>(),
-                        It.Is<It.IsAnyType>((v, t) =>
-                            v.ToString().Contains("\"Host\":\"test\"") &&
-                            v.ToString().Contains("\"ContentType\":\"application/json\"") &&
-                            v.ToString().Contains("\"Method\":\"POST\"") &&
-                            v.ToString().Contains("\"Path\":\"/test/test\"") &&
-                            //v.ToString().Contains("\"QueryString\":\"?test&test\"") && 
-                            v.ToString().Contains("\"X-Test-Header\":[\"header-value\"]") &&
-                            v.ToString().Contains("\"Body\":\"Test\"")
-                        ),
-                        It.IsAny<Exception>(),
-                        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                    Times.Once
-                );
+            VerifyResponseLogEntry(Times.Once);
+            VerifyRequestLogEntry(Times.Once);
         }
 
         [Test]
@@ -109,37 +80,8 @@ namespace LogCatcher3000.Tests
 
             await middleware.Invoke(context);
 
-            _mockLogger.Verify(
-                x => x.Log(
-                    LogLevel.Information,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) =>
-                        v.ToString().Contains("Response:") &&
-                        v.ToString().Contains("\"StatusCode\":200") &&
-                        v.ToString().Contains("\"ContentType\":\"application/json\"")
-                    ),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                Times.Once
-                );
-
-            _mockLogger.Verify(
-                    x => x.Log(
-                        LogLevel.Information,
-                        It.IsAny<EventId>(),
-                        It.Is<It.IsAnyType>((v, t) =>
-                            v.ToString().Contains("\"Host\":\"test\"") &&
-                            v.ToString().Contains("\"ContentType\":\"application/json\"") &&
-                            v.ToString().Contains("\"Method\":\"POST\"") &&
-                            v.ToString().Contains("\"Path\":\"/test/test\"") &&
-                            //v.ToString().Contains("\"QueryString\":\"?test&test\"") && 
-                            v.ToString().Contains("\"X-Test-Header\":[\"header-value\"]") &&
-                            v.ToString().Contains("\"Body\":\"Test\"")
-                        ),
-                        It.IsAny<Exception>(),
-                        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                    Times.Never
-                );
+            VerifyResponseLogEntry(Times.Once);
+            VerifyRequestLogEntry(Times.Never);
         }
 
         [Test]
@@ -155,38 +97,8 @@ namespace LogCatcher3000.Tests
 
             await middleware.Invoke(context);
 
-            _mockLogger.Verify(
-                    x => x.Log(
-                        LogLevel.Information,
-                        It.IsAny<EventId>(),
-                        It.Is<It.IsAnyType>((v, t) =>
-                            v.ToString().Contains("\"Host\":\"test\"") &&             
-                            v.ToString().Contains("\"ContentType\":\"application/json\"") &&
-                            v.ToString().Contains("\"Method\":\"POST\"") &&
-                            v.ToString().Contains("\"Path\":\"/test/test\"") &&      
-                            //v.ToString().Contains("\"QueryString\":\"?test&test\"") && 
-                            v.ToString().Contains("\"X-Test-Header\":[\"header-value\"]") &&
-                            v.ToString().Contains("\"Body\":\"Test\"")
-                        ),
-                        It.IsAny<Exception>(),
-                        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                    Times.Once
-                );
-
-            _mockLogger.Verify(
-                x => x.Log(
-                    LogLevel.Information,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) =>
-                        v.ToString().Contains("Response:") &&
-                        v.ToString().Contains("\"StatusCode\":200") &&
-                        v.ToString().Contains("\"ContentType\":\"application/json\"") &&
-                        v.ToString().Contains("\"Body\":\"Test\"")
-                    ),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                Times.Never
-                );
+            VerifyRequestLogEntry(Times.Once);
+            VerifyResponseLogEntry(Times.Never);
         }
 
         private bool ValidateJsonLog(string logMessage)
@@ -212,6 +124,44 @@ namespace LogCatcher3000.Tests
             {
                 return false;
             }
+        }
+
+        private void VerifyResponseLogEntry(Func<Times> time)
+        {
+            _mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) =>
+                        v.ToString().Contains("Response:") &&
+                        v.ToString().Contains("\"StatusCode\":200") &&
+                        v.ToString().Contains("\"ContentType\":\"application/json\"")
+                    ),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                time
+                );
+        }
+
+        private void VerifyRequestLogEntry(Func<Times> time)
+        {
+            _mockLogger.Verify(
+                    x => x.Log(
+                        LogLevel.Information,
+                        It.IsAny<EventId>(),
+                        It.Is<It.IsAnyType>((v, t) =>
+                            v.ToString().Contains("\"Host\":\"test\"") &&
+                            v.ToString().Contains("\"ContentType\":\"application/json\"") &&
+                            v.ToString().Contains("\"Method\":\"POST\"") &&
+                            v.ToString().Contains("\"Path\":\"/test/test\"") &&
+                            //v.ToString().Contains("\"QueryString\":\"?test&test\"") && 
+                            v.ToString().Contains("\"X-Test-Header\":[\"header-value\"]") &&
+                            v.ToString().Contains("\"Body\":\"Test\"")
+                        ),
+                        It.IsAny<Exception>(),
+                        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                    time
+                );
         }
 
         private Microsoft.Extensions.Configuration.IConfiguration BuildConfiguration(bool enableRequest, bool enableResponse)

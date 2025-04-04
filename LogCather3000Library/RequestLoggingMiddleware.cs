@@ -69,6 +69,7 @@ namespace LogCather3000Library
                 Body = body
             });
             _logger.LogInformation("Incoming Request: " + jsonRequest);
+            Console.WriteLine(jsonRequest);
         }
 
         private async Task LogResponse(HttpContext context, MemoryStream responseBody)
@@ -86,6 +87,7 @@ namespace LogCather3000Library
                 ContentType = context.Response.ContentType
             });
             _logger.LogInformation("Response: " + jsonResponse);
+            Console.WriteLine(jsonResponse);
         }
     }
 }
