@@ -1,4 +1,4 @@
-using LogCather3000Library;
+﻿using LogCather3000Library;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework.Internal;
 using Moq;
@@ -101,6 +101,30 @@ namespace LogCatcher3000.Tests
             VerifyResponseLogEntry(Times.Never);
         }
 
+        [Test]  
+        public async Task Middleware_Should_Move_Response_Body_When_Response_Logging_Enabled()
+        {
+            var config = BuildConfiguration(enableResponse: true);
+            var originalBodyStream = new MemoryStream();
+
+            var context = new DefaultHttpContext
+            {
+                Response = { Body = originalBodyStream }
+            };
+
+            var middleware = new RequestLoggingMiddleware(
+                next: async ctx => await ctx.Response.WriteAsync("Test"),
+                logger: _mockLogger.Object,
+                config: config);
+
+            await middleware.Invoke(context);
+
+            originalBodyStream.Seek(0, SeekOrigin.Begin);
+            var content = new StreamReader(originalBodyStream).ReadToEnd();
+            Assert.That(content, Is.EqualTo("Test")); 
+            //VerifyResponseLogEntry(Times.Once); 
+        }
+
         private bool ValidateJsonLog(string logMessage)
         {
             try
@@ -164,7 +188,7 @@ namespace LogCatcher3000.Tests
                 );
         }
 
-        private Microsoft.Extensions.Configuration.IConfiguration BuildConfiguration(bool enableRequest, bool enableResponse)
+        private Microsoft.Extensions.Configuration.IConfiguration BuildConfiguration(bool enableRequest=false, bool enableResponse=false)
         {
             var configValues = new Dictionary<string, string>
             {
