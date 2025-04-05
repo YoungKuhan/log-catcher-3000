@@ -119,35 +119,8 @@ namespace LogCatcher3000.Tests
 
             await middleware.Invoke(context);
 
-            originalBodyStream.Seek(0, SeekOrigin.Begin);
             var content = new StreamReader(originalBodyStream).ReadToEnd();
             Assert.That(content, Is.EqualTo("Test")); 
-            //VerifyResponseLogEntry(Times.Once); 
-        }
-
-        private bool ValidateJsonLog(string logMessage)
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(logMessage);
-                var root = doc.RootElement;
-
-                var methodCorrect = root.TryGetProperty("Method", out var method) &&
-                                    method.GetString() == "POST";
-
-                var pathCorrect = root.TryGetProperty("Path", out var path) &&
-                                  path.TryGetProperty("Value", out var pathValue) &&
-                                  pathValue.GetString() == "/test";
-
-                var bodyCorrect = root.TryGetProperty("Body", out var body) &&
-                                  body.GetString().Contains("\"name\": \"Test\"");
-
-                return methodCorrect && pathCorrect && bodyCorrect;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         private void VerifyResponseLogEntry(Func<Times> time)

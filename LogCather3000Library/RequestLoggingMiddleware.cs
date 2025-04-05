@@ -46,6 +46,7 @@ namespace LogCather3000Library
             }
 
             await responseBody.CopyToAsync(originalBodyStream);
+            originalBodyStream.Seek(0, SeekOrigin.Begin);
         }
 
         private async Task LogRequest(HttpContext context)
