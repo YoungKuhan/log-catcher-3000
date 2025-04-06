@@ -101,6 +101,27 @@ namespace LogCatcher3000.Tests
             VerifyResponseLogEntry(Times.Never);
         }
 
+        [Test]
+        public async Task Middleware_Should_Move_Request_Body()
+        {
+            var config = BuildConfiguration(enableRequest: true);
+            var originalBodyStream = new MemoryStream(Encoding.UTF8.GetBytes("Test"));
+            var context = new DefaultHttpContext
+            {
+                Request = { Body = originalBodyStream }
+            };
+
+            var middleware = new RequestLoggingMiddleware(
+                next: async ctx => await ctx.Response.WriteAsync("Test"),
+                logger: _mockLogger.Object,
+                config: config);
+
+            await middleware.Invoke(context);
+
+            var content = new StreamReader(originalBodyStream).ReadToEnd();
+            Assert.That(content, Is.EqualTo("Test"));
+        }
+
         [Test]  
         public async Task Middleware_Should_Move_Response_Body_When_Response_Logging_Enabled()
         {
@@ -151,7 +172,7 @@ namespace LogCatcher3000.Tests
                             v.ToString().Contains("\"ContentType\":\"application/json\"") &&
                             v.ToString().Contains("\"Method\":\"POST\"") &&
                             v.ToString().Contains("\"Path\":\"/test/test\"") &&
-                            //v.ToString().Contains("\"QueryString\":\"?test&test\"") && 
+                            //v.ToString().Contains("\"QueryString\":\"?name=test&name1=test\"") && 
                             v.ToString().Contains("\"X-Test-Header\":[\"header-value\"]") &&
                             v.ToString().Contains("\"Body\":\"Test\"")
                         ),
@@ -183,12 +204,8 @@ namespace LogCatcher3000.Tests
             context.Request.ContentType = "application/json";
             context.Request.Path = "/test/test";
 
-            var url = "https://www.microsoft.com?name=John&age=30&location=USA";
-            var parsedUrl = url.Split('?')[1];
-
-            // problem z odpowiednim stworzeniem query stringa
-            var paramsCollection = HttpUtility.ParseQueryString(parsedUrl);
-            //context.Request.QueryString = new QueryString("?test&test");
+            string queryString = "?name=test&name1=test";
+            context.Request.QueryString = new QueryString(queryString);
 
             context.Response.StatusCode = 200;
             context.Response.ContentType = "application/json";
